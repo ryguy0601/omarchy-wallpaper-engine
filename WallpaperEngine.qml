@@ -225,8 +225,8 @@ Item {
             width: parent.width
             height: 195
             radius: 20
-            color: "#0c0c12e0"
-            border.color: "#e2007466"
+            color: "#e60c0c12"
+            border.color: "#80e20074"
             border.width: 1.5
 
             // Ambient Magenta Glow behind clock
@@ -285,8 +285,8 @@ Item {
                 height: 34
                 width: weatherRow.implicitWidth + 32
                 radius: 17
-                color: "#181826ee"
-                border.color: "#e200744d"
+                color: "#ea161622"
+                border.color: "#60e20074"
                 border.width: 1
 
                 Row {
@@ -332,8 +332,8 @@ Item {
             width: parent.width
             height: 195
             radius: 20
-            color: "#0c0c12e0"
-            border.color: "#e2007466"
+            color: "#e60c0c12"
+            border.color: "#80e20074"
             border.width: 1.5
 
             Column {
