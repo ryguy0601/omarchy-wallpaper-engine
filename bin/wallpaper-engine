@@ -1,0 +1,576 @@
+#!/usr/bin/env python3
+"""
+Wallpaper Engine CLI & GUI Controller
+Manage, configure, and reload the Wallpaper Engine desktop widget.
+"""
+import sys
+import os
+import json
+import glob
+import subprocess
+
+CONFIG_PATH = os.path.expanduser("~/.config/wallpaper-engine/config.json")
+GUI_PATH = os.path.expanduser("~/.config/wallpaper-engine/gui/SettingsWindow.qml")
+
+DEFAULT_CONFIG = {
+    "layout": {
+        "position": "center",
+        "customX": 100,
+        "customY": 100,
+        "width": 720,
+        "spacing": 22
+    },
+    "modules": {
+        "clock": True,
+        "date": True,
+        "weather": True,
+        "media": True,
+        "visualizer": True,
+        "sysinfo": True,
+        "shortcuts": True,
+        "quote": False,
+        "footer": True,
+        "customizeButton": True
+    },
+    "clock": {
+        "format12h": True,
+        "showAmPm": True,
+        "showSeconds": False,
+        "fontSize": 76
+    },
+    "hardware": {
+        "showCpuLoad": True,
+        "showCpuTemp": True,
+        "showFanSpeed": True,
+        "showRam": True,
+        "showGpuTemp": False,
+        "tempUnit": "C"
+    },
+    "shortcuts": [
+        { "icon": "󰈹", "label": "Browser", "cmd": "omarchy-cmd-default-browser || xdg-open https://google.com" },
+        { "icon": "󰆍", "label": "Terminal", "cmd": "omarchy-default-terminal || foot" },
+        { "icon": "󰉋", "label": "Files", "cmd": "thunar || omarchy-file-select" },
+        { "icon": "󰨞", "label": "Editor", "cmd": "omarchy-default-editor || code || foot -e nvim" },
+        { "icon": "󰎆", "label": "Music", "cmd": "playerctl play-pause 2>/dev/null || true" },
+        { "icon": "", "label": "Settings", "cmd": "wallpaper-engine gui" }
+    ],
+    "quote": {
+        "text": "The best way to predict the future is to invent it.",
+        "author": "Alan Kay"
+    },
+    "visualizer": {
+        "height": 70,
+        "bars": 28,
+        "idleWave": True
+    },
+    "style": {
+        "accentColor": "#e20074",
+        "cardBackground": "#0c0c12",
+        "cardOpacity": 0.85,
+        "cardRadius": 20,
+        "borderGlow": True,
+        "borderWidth": 1.5,
+        "userName": "auto",
+        "autoRestartShell": False
+    }
+}
+
+def load_config():
+    if not os.path.exists(CONFIG_PATH):
+        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        save_config(DEFAULT_CONFIG)
+        return DEFAULT_CONFIG
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            data = json.load(f)
+            merged = DEFAULT_CONFIG.copy()
+            for k, v in data.items():
+                if isinstance(v, dict) and k in merged:
+                    merged[k] = {**merged[k], **v}
+                else:
+                    merged[k] = v
+            return merged
+    except Exception:
+        return DEFAULT_CONFIG
+
+def save_config(cfg):
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+def restart_shell():
+    try:
+        subprocess.run(["omarchy", "restart", "shell"], check=False)
+        print("✓ Omarchy shell restarted")
+    except Exception as e:
+        print(f"Error restarting shell: {e}", file=sys.stderr)
+
+def get_hw_info():
+    """Extract ultra-fast real-time hardware telemetry: CPU load, RAM, CPU temp, Fan speeds, GPU temp."""
+    cpu_load = "0.0"
+    try:
+        with open("/proc/loadavg", "r") as f:
+            cpu_load = f.read().split()[0]
+    except Exception:
+        pass
+
+    ram_used = "0G"
+    ram_total = "0G"
+    ram_pct = 0
+    try:
+        meminfo = {}
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                parts = line.split(":")
+                if len(parts) == 2:
+                    meminfo[parts[0].strip()] = int(parts[1].strip().split()[0])
+        total_kb = meminfo.get("MemTotal", 1)
+        avail_kb = meminfo.get("MemAvailable", 0)
+        used_kb = max(0, total_kb - avail_kb)
+        ram_used = f"{used_kb / 1048576:.1f}G"
+        ram_total = f"{total_kb / 1048576:.1f}G"
+        ram_pct = int(round(used_kb * 100.0 / total_kb))
+    except Exception:
+        pass
+
+    cpu_temp = 0
+    fan_speed = 0
+    gpu_temp = 0
+
+    # Probe hwmon sysfs nodes directly
+    for h in glob.glob("/sys/class/hwmon/hwmon*"):
+        try:
+            with open(f"{h}/name", "r") as f:
+                name = f.read().strip()
+        except Exception:
+            continue
+
+        # CPU Temp
+        if "coretemp" in name or "k10temp" in name or "cpu" in name.lower() or "dell" in name:
+            for tfile in glob.glob(f"{h}/temp*_input"):
+                try:
+                    with open(tfile, "r") as f:
+                        v = int(f.read().strip())
+                        if v > 1000:
+                            t = int(round(v / 1000.0))
+                            if 20 <= t <= 115 and (cpu_temp == 0 or t > cpu_temp):
+                                cpu_temp = t
+                except Exception:
+                    pass
+
+        # Fan Speeds
+        if "smm" in name or "ddv" in name or "fan" in name or "dell" in name:
+            for ffile in glob.glob(f"{h}/fan*_input"):
+                try:
+                    with open(ffile, "r") as f:
+                        v = int(f.read().strip())
+                        if v > fan_speed:
+                            fan_speed = v
+                except Exception:
+                    pass
+
+        # GPU Temp
+        if "i915" in name or "amdgpu" in name or "nouveau" in name or "nvidia" in name:
+            for tfile in glob.glob(f"{h}/temp*_input"):
+                try:
+                    with open(tfile, "r") as f:
+                        v = int(f.read().strip())
+                        if v > 1000:
+                            gpu_temp = int(round(v / 1000.0))
+                            break
+                except Exception:
+                    pass
+
+    # Fallback to thermal_zone for CPU temp if not found
+    if not cpu_temp:
+        for tz in glob.glob("/sys/class/thermal/thermal_zone*"):
+            try:
+                with open(f"{tz}/temp", "r") as f:
+                    t = int(round(int(f.read().strip()) / 1000.0))
+                    if 25 <= t <= 115:
+                        cpu_temp = t
+                        break
+            except Exception:
+                pass
+
+    return {
+        "cpuLoad": cpu_load,
+        "ramUsed": ram_used,
+        "ramTotal": ram_total,
+        "ramPercent": ram_pct,
+        "cpuTemp": cpu_temp,
+        "fanSpeed": fan_speed,
+        "gpuTemp": gpu_temp
+    }
+
+def print_help():
+    print("""Wallpaper Engine CLI & Agent Controller
+Manage, configure, and inspect the Wallpaper Engine desktop widget.
+
+Commands:
+  wallpaper-engine gui                         Launch graphical settings customizer HUD
+  wallpaper-engine restart                     Apply changes & restart Omarchy shell
+  wallpaper-engine hwinfo                      Output live JSON hardware telemetry (CPU temp, fans, load, RAM)
+  wallpaper-engine hw                          Inspect live hardware readings & display config
+  wallpaper-engine hw toggle <setting>         Toggle hardware item (cputemp, fanspeed, cpuload, ram, gputemp, unit)
+  wallpaper-engine shortcut list               List all configured application shortcuts
+  wallpaper-engine shortcut add <name> <icon> <cmd>  Add a new app launcher shortcut
+  wallpaper-engine shortcut remove <index>     Remove shortcut by index (1-based)
+  wallpaper-engine shortcut reset              Reset shortcuts dock to default apps
+  wallpaper-engine position <pos>              Set position (center, top-left, top-right,
+                                               bottom-left, bottom-right, top-center, bottom-center, custom)
+  wallpaper-engine coords <x> <y>              Set custom pixel X and Y coordinates
+  wallpaper-engine toggle <module>             Toggle module (clock, date, weather, media,
+                                               visualizer, sysinfo, shortcuts, quote, footer, customize-button)
+  wallpaper-engine color <#hex>                Set accent color (#e20074, #00e5ff, etc.)
+  wallpaper-engine format <12|24>              Set clock to 12-hour or 24-hour mode
+  wallpaper-engine seconds <on|off>            Toggle clock running seconds
+  wallpaper-engine clock-size <px>             Set clock font size (50-110)
+  wallpaper-engine quote "<text>" ["<author>"] Set inspiration quote text and author
+  wallpaper-engine wallpaper <path>            Set desktop wallpaper via Omarchy
+  wallpaper-engine name <auto|YourName>        Set personalized display name
+  wallpaper-engine width <pixels>              Set widget width (500-1000)
+  wallpaper-engine spacing <pixels>            Set vertical card spacing (10-40)
+  wallpaper-engine opacity <0.4-1.0>           Set card translucency
+  wallpaper-engine radius <6-36>               Set card corner radius
+  wallpaper-engine apply-json '<json>' [--restart] Apply full JSON configuration
+  wallpaper-engine edit                        Open config.json in $EDITOR
+  wallpaper-engine status                      Print current configuration
+  wallpaper-engine reset                       Reset all settings to factory defaults
+""")
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
+        print_help()
+        sys.exit(0)
+
+    cmd = sys.argv[1].lower()
+    cfg = load_config()
+
+    if cmd == "gui":
+        gui_path = GUI_PATH
+        if not os.path.exists(gui_path):
+            gui_path = os.path.expanduser("~/.config/omarchy/plugins/ryguy.wallpaper-engine/SettingsWindow.qml")
+        subprocess.Popen(["quickshell", "-n", "-p", gui_path],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("✓ Launched Wallpaper Engine Settings GUI")
+
+    elif cmd in ("restart", "reload"):
+        restart_shell()
+
+    elif cmd == "hwinfo":
+        info = get_hw_info()
+        print(json.dumps(info))
+
+    elif cmd == "hw":
+        info = get_hw_info()
+        hw_cfg = cfg.setdefault("hardware", {
+            "showCpuLoad": True,
+            "showCpuTemp": True,
+            "showFanSpeed": True,
+            "showRam": True,
+            "showGpuTemp": False,
+            "tempUnit": "C"
+        })
+        if len(sys.argv) > 2 and sys.argv[2].lower() == "toggle":
+            if len(sys.argv) < 4:
+                print("Specify setting to toggle: cputemp, fanspeed, cpuload, ram, gputemp, unit")
+                return
+            target = sys.argv[3].lower()
+            key_map = {
+                "cputemp": "showCpuTemp",
+                "fanspeed": "showFanSpeed",
+                "cpuload": "showCpuLoad",
+                "ram": "showRam",
+                "gputemp": "showGpuTemp"
+            }
+            if target in key_map:
+                k = key_map[target]
+                hw_cfg[k] = not hw_cfg.get(k, True)
+                save_config(cfg)
+                print(f"✓ Hardware display '{target}' is now {'ENABLED' if hw_cfg[k] else 'DISABLED'}")
+            elif target in ("unit", "tempunit"):
+                cur = hw_cfg.get("tempUnit", "C")
+                hw_cfg["tempUnit"] = "F" if cur == "C" else "C"
+                save_config(cfg)
+                print(f"✓ Temperature unit set to °{hw_cfg['tempUnit']}")
+            else:
+                print(f"Unknown hardware toggle '{target}'. Choose from: {', '.join(list(key_map.keys()) + ['unit'])}")
+            return
+
+        unit = hw_cfg.get("tempUnit", "C")
+        cpu_t = info['cpuTemp']
+        disp_cpu_t = f"{round(cpu_t * 9/5 + 32)}°F" if unit == "F" and cpu_t else f"{cpu_t}°C"
+        gpu_t = info['gpuTemp']
+        disp_gpu_t = f"{round(gpu_t * 9/5 + 32)}°F" if unit == "F" and gpu_t else f"{gpu_t}°C"
+
+        print("=== Wallpaper Engine Hardware Telemetry ===")
+        print(f"  CPU Load:      {info['cpuLoad']} load  [Display: {'ON' if hw_cfg.get('showCpuLoad', True) else 'OFF'}]")
+        print(f"  CPU Temp:      {disp_cpu_t}          [Display: {'ON' if hw_cfg.get('showCpuTemp', True) else 'OFF'}]")
+        print(f"  Fan Speed:     {info['fanSpeed']} RPM        [Display: {'ON' if hw_cfg.get('showFanSpeed', True) else 'OFF'}]")
+        print(f"  RAM Memory:    {info['ramUsed']} / {info['ramTotal']} ({info['ramPercent']}%)  [Display: {'ON' if hw_cfg.get('showRam', True) else 'OFF'}]")
+        print(f"  GPU Temp:      {disp_gpu_t if gpu_t else 'N/A'}          [Display: {'ON' if hw_cfg.get('showGpuTemp', False) else 'OFF'}]")
+        print(f"  Temp Unit:     °{unit}")
+
+    elif cmd == "shortcut":
+        sub = sys.argv[2].lower() if len(sys.argv) > 2 else "list"
+        sc_list = cfg.setdefault("shortcuts", DEFAULT_CONFIG["shortcuts"])
+        if sub == "list":
+            print("=== Configured Dock App Shortcuts ===")
+            for i, sc in enumerate(sc_list, 1):
+                print(f"  [{i}] {sc.get('icon', '󰈹')}  {sc.get('label', 'App'):<12} -> {sc.get('cmd', '')}")
+            print("\nUse 'wallpaper-engine shortcut add <name> <icon> <cmd>' or 'remove <idx>' to customize.")
+        elif sub == "add":
+            if len(sys.argv) < 6:
+                print("Usage: wallpaper-engine shortcut add <name> <icon> <cmd>")
+                print("Example: wallpaper-engine shortcut add Discord '󰒱' 'discord'")
+                return
+            label = sys.argv[3]
+            icon = sys.argv[4]
+            cmd_str = " ".join(sys.argv[5:])
+            sc_list.append({"label": label, "icon": icon, "cmd": cmd_str})
+            save_config(cfg)
+            print(f"✓ Added shortcut: {icon} {label} -> {cmd_str}")
+        elif sub == "remove":
+            if len(sys.argv) < 4:
+                print("Usage: wallpaper-engine shortcut remove <index>")
+                return
+            try:
+                idx = int(sys.argv[3]) - 1
+                if 0 <= idx < len(sc_list):
+                    removed = sc_list.pop(idx)
+                    save_config(cfg)
+                    print(f"✓ Removed shortcut: {removed.get('label', 'App')}")
+                else:
+                    print(f"Error: index out of range (1-{len(sc_list)})", file=sys.stderr)
+            except ValueError:
+                print("Error: index must be an integer", file=sys.stderr)
+        elif sub == "reset":
+            cfg["shortcuts"] = DEFAULT_CONFIG["shortcuts"]
+            save_config(cfg)
+            print("✓ Shortcuts dock reset to default applications")
+        else:
+            print(f"Unknown shortcut subcommand '{sub}'. Choose: list, add, remove, reset")
+
+    elif cmd == "apply-json":
+        should_restart = "--restart" in sys.argv
+        args = [a for a in sys.argv[2:] if a != "--restart"]
+        raw = args[0] if args else sys.stdin.read()
+        try:
+            new_cfg = json.loads(raw)
+            save_config(new_cfg)
+            print("✓ Configuration saved")
+            if should_restart or new_cfg.get("style", {}).get("autoRestartShell", False):
+                restart_shell()
+        except Exception as e:
+            print(f"Error parsing JSON: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "position":
+        if len(sys.argv) < 3:
+            print(f"Current position: {cfg.get('layout', {}).get('position', 'center')}")
+            return
+        pos = sys.argv[2].lower()
+        valid = ["center", "top-left", "top-right", "bottom-left", "bottom-right", "top-center", "bottom-center", "custom"]
+        if pos not in valid:
+            print(f"Error: Invalid position '{pos}'. Choose from: {', '.join(valid)}")
+            sys.exit(1)
+        cfg.setdefault("layout", {})["position"] = pos
+        save_config(cfg)
+        print(f"✓ Position updated to: {pos}")
+
+    elif cmd == "coords":
+        if len(sys.argv) < 4:
+            l = cfg.get("layout", {})
+            print(f"Current custom coordinates: X={l.get('customX', 100)}, Y={l.get('customY', 100)}")
+            return
+        try:
+            x, y = int(sys.argv[2]), int(sys.argv[3])
+            cfg.setdefault("layout", {})["customX"] = x
+            cfg.setdefault("layout", {})["customY"] = y
+            cfg["layout"]["position"] = "custom"
+            save_config(cfg)
+            print(f"✓ Coordinates set to: X={x}, Y={y} (position=custom)")
+        except ValueError:
+            print("Error: coordinates must be integers", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "toggle":
+        if len(sys.argv) < 3:
+            print("Specify module: clock, date, weather, media, visualizer, sysinfo, shortcuts, quote, footer, customize-button")
+            return
+        raw_mod = sys.argv[2].lower()
+        alias_map = {
+            "customizebutton": "customizeButton",
+            "customize-button": "customizeButton",
+            "customize_button": "customizeButton",
+            "customizebtn": "customizeButton",
+            "custbtn": "customizeButton"
+        }
+        mod = alias_map.get(raw_mod, raw_mod)
+        mods = cfg.setdefault("modules", {})
+        if mod not in mods:
+            # Check case-insensitive match
+            found = False
+            for k in list(mods.keys()):
+                if k.lower() == mod.lower():
+                    mod = k
+                    found = True
+                    break
+            if not found:
+                print(f"Error: Unknown module '{raw_mod}'. Available: {', '.join(mods.keys())}")
+                sys.exit(1)
+        mods[mod] = not mods[mod]
+        save_config(cfg)
+        state = "ENABLED" if mods[mod] else "DISABLED"
+        print(f"✓ Module '{mod}' is now {state}")
+
+    elif cmd == "color":
+        if len(sys.argv) < 3:
+            print(f"Current accent color: {cfg.get('style', {}).get('accentColor', '#e20074')}")
+            return
+        color = sys.argv[2]
+        if not color.startswith("#"):
+            color = "#" + color
+        cfg.setdefault("style", {})["accentColor"] = color
+        save_config(cfg)
+        print(f"✓ Accent color updated to: {color}")
+
+    elif cmd == "format":
+        if len(sys.argv) < 3:
+            fmt = "12-hour" if cfg.get("clock", {}).get("format12h", True) else "24-hour"
+            print(f"Current format: {fmt}")
+            return
+        val = sys.argv[2]
+        is12 = (val == "12")
+        cfg.setdefault("clock", {})["format12h"] = is12
+        save_config(cfg)
+        print(f"✓ Clock format set to: {'12-hour' if is12 else '24-hour'}")
+
+    elif cmd == "seconds":
+        if len(sys.argv) < 3:
+            sec = cfg.get("clock", {}).get("showSeconds", False)
+            print(f"Show seconds: {'on' if sec else 'off'}")
+            return
+        val = sys.argv[2].lower() in ("on", "true", "1", "yes")
+        cfg.setdefault("clock", {})["showSeconds"] = val
+        save_config(cfg)
+        print(f"✓ Show seconds: {'enabled' if val else 'disabled'}")
+
+    elif cmd == "clock-size":
+        if len(sys.argv) < 3:
+            print(f"Clock font size: {cfg.get('clock', {}).get('fontSize', 76)}px")
+            return
+        try:
+            sz = int(sys.argv[2])
+            cfg.setdefault("clock", {})["fontSize"] = max(40, min(140, sz))
+            save_config(cfg)
+            print(f"✓ Clock font size set to: {cfg['clock']['fontSize']}px")
+        except ValueError:
+            print("Error: font size must be an integer", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "quote":
+        if len(sys.argv) < 3:
+            q = cfg.get("quote", {})
+            print(f"Quote: \"{q.get('text', '')}\" — {q.get('author', '')}")
+            return
+        text = sys.argv[2]
+        author = sys.argv[3] if len(sys.argv) > 3 else ""
+        cfg.setdefault("quote", {})["text"] = text
+        cfg["quote"]["author"] = author
+        cfg.setdefault("modules", {})["quote"] = True
+        save_config(cfg)
+        print(f"✓ Quote updated and enabled: \"{text}\" — {author}")
+
+    elif cmd == "wallpaper":
+        if len(sys.argv) < 3:
+            print("Specify path to wallpaper image file")
+            return
+        path = os.path.expanduser(sys.argv[2])
+        if not os.path.exists(path):
+            print(f"Error: file does not exist: {path}", file=sys.stderr)
+            sys.exit(1)
+        subprocess.run(["omarchy-theme-bg-set", path])
+        print(f"✓ Wallpaper updated to: {path}")
+
+    elif cmd == "name":
+        if len(sys.argv) < 3:
+            print(f"Current user display: {cfg.get('style', {}).get('userName', 'auto')}")
+            return
+        name = sys.argv[2]
+        cfg.setdefault("style", {})["userName"] = name
+        save_config(cfg)
+        print(f"✓ Username display set to: {name}")
+
+    elif cmd == "width":
+        if len(sys.argv) < 3:
+            print(f"Current width: {cfg.get('layout', {}).get('width', 720)}px")
+            return
+        try:
+            w = int(sys.argv[2])
+            cfg.setdefault("layout", {})["width"] = w
+            save_config(cfg)
+            print(f"✓ Widget width set to: {w}px")
+        except ValueError:
+            print("Error: width must be an integer", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "spacing":
+        if len(sys.argv) < 3:
+            print(f"Current spacing: {cfg.get('layout', {}).get('spacing', 22)}px")
+            return
+        try:
+            s = int(sys.argv[2])
+            cfg.setdefault("layout", {})["spacing"] = s
+            save_config(cfg)
+            print(f"✓ Module spacing set to: {s}px")
+        except ValueError:
+            print("Error: spacing must be an integer", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "opacity":
+        if len(sys.argv) < 3:
+            print(f"Current opacity: {cfg.get('style', {}).get('cardOpacity', 0.85)}")
+            return
+        try:
+            op = float(sys.argv[2])
+            cfg.setdefault("style", {})["cardOpacity"] = max(0.2, min(1.0, op))
+            save_config(cfg)
+            print(f"✓ Card opacity set to: {cfg['style']['cardOpacity']}")
+        except ValueError:
+            print("Error: opacity must be a decimal between 0.2 and 1.0", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "radius":
+        if len(sys.argv) < 3:
+            print(f"Current radius: {cfg.get('style', {}).get('cardRadius', 20)}px")
+            return
+        try:
+            r = int(sys.argv[2])
+            cfg.setdefault("style", {})["cardRadius"] = max(0, min(50, r))
+            save_config(cfg)
+            print(f"✓ Card radius set to: {cfg['style']['cardRadius']}px")
+        except ValueError:
+            print("Error: radius must be an integer", file=sys.stderr)
+            sys.exit(1)
+
+    elif cmd == "edit":
+        editor = os.environ.get("EDITOR", "nvim" if os.path.exists("/usr/bin/nvim") else "nano")
+        subprocess.run([editor, CONFIG_PATH])
+
+    elif cmd == "status":
+        print(f"Configuration file: {CONFIG_PATH}\n")
+        print(json.dumps(cfg, indent=2))
+
+    elif cmd == "reset":
+        save_config(DEFAULT_CONFIG)
+        print("✓ Configuration reset to defaults")
+
+    else:
+        print(f"Unknown command: {cmd}")
+        print_help()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
