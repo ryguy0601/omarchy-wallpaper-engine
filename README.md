@@ -10,12 +10,12 @@ An interactive, modular desktop widget and control center for **Omarchy** and **
 
 ### Via Omarchy Shell Plugin Manager (Recommended)
 ```bash
-omarchy plugin add https://github.com/ryguy/omarchy-wallpaper-engine.git --enable
+omarchy plugin add https://github.com/ryguy0601/omarchy-wallpaper-engine.git --enable
 ```
 
 ### Manual Git Clone
 ```bash
-git clone https://github.com/ryguy/omarchy-wallpaper-engine.git ~/.config/omarchy/plugins/ryguy.wallpaper-engine
+git clone https://github.com/ryguy0601/omarchy-wallpaper-engine.git ~/.config/omarchy/plugins/ryguy.wallpaper-engine
 cd ~/.config/omarchy/plugins/ryguy.wallpaper-engine
 ./install.sh
 omarchy restart shell

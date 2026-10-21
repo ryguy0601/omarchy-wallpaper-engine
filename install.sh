@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Wallpaper Engine Desktop Plugin Installer
-# https://github.com/ryguy/omarchy-wallpaper-engine
+# https://github.com/ryguy0601/omarchy-wallpaper-engine
 # ==============================================================================
 set -euo pipefail
 
