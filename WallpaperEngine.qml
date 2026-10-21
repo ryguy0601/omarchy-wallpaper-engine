@@ -346,67 +346,32 @@ Item {
       Item {
         anchors.fill: parent
 
-        // Main Widget Hub Container with Flexible Dynamic Positioning
+        // Main Widget Hub Container with Smooth Animated Positioning
         Item {
           id: widgetHub
           width: root.cfgWidth
           height: contentColumn.height
 
-          // Positioning Logic
-          Component.onCompleted: updateAnchorPosition()
-          Connections {
-            target: root
-            function onCfgPositionChanged() { widgetHub.updateAnchorPosition() }
-            function onCfgCustomXChanged() { widgetHub.updateAnchorPosition() }
-            function onCfgCustomYChanged() { widgetHub.updateAnchorPosition() }
-          }
-
-          function updateAnchorPosition() {
-            anchors.centerIn = undefined
-            anchors.left = undefined
-            anchors.right = undefined
-            anchors.top = undefined
-            anchors.bottom = undefined
-            anchors.horizontalCenter = undefined
-            anchors.margins = 0
-
+          readonly property real computedX: {
             var pos = root.cfgPosition
-            if (pos === "top-left") {
-              anchors.left = parent.left
-              anchors.top = parent.top
-              anchors.leftMargin = 50
-              anchors.topMargin = 50
-            } else if (pos === "top-right") {
-              anchors.right = parent.right
-              anchors.top = parent.top
-              anchors.rightMargin = 50
-              anchors.topMargin = 50
-            } else if (pos === "bottom-left") {
-              anchors.left = parent.left
-              anchors.bottom = parent.bottom
-              anchors.leftMargin = 50
-              anchors.bottomMargin = 50
-            } else if (pos === "bottom-right") {
-              anchors.right = parent.right
-              anchors.bottom = parent.bottom
-              anchors.rightMargin = 50
-              anchors.bottomMargin = 50
-            } else if (pos === "top-center") {
-              anchors.horizontalCenter = parent.horizontalCenter
-              anchors.top = parent.top
-              anchors.topMargin = 50
-            } else if (pos === "bottom-center") {
-              anchors.horizontalCenter = parent.horizontalCenter
-              anchors.bottom = parent.bottom
-              anchors.bottomMargin = 50
-            } else if (pos === "custom") {
-              x = root.cfgCustomX
-              y = root.cfgCustomY
-            } else {
-              // Default to center
-              anchors.centerIn = parent
-            }
+            if (pos === "top-left" || pos === "bottom-left") return 60
+            if (pos === "top-right" || pos === "bottom-right") return parent.width - width - 60
+            if (pos === "custom") return root.cfgCustomX
+            return (parent.width - width) / 2
           }
+          readonly property real computedY: {
+            var pos = root.cfgPosition
+            if (pos === "top-left" || pos === "top-right" || pos === "top-center") return 60
+            if (pos === "bottom-left" || pos === "bottom-right" || pos === "bottom-center") return parent.height - height - 60
+            if (pos === "custom") return root.cfgCustomY
+            return (parent.height - height) / 2
+          }
+
+          x: computedX
+          y: computedY
+
+          Behavior on x { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+          Behavior on y { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
 
           Column {
             id: contentColumn
