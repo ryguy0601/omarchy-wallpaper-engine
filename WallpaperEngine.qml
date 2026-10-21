@@ -28,10 +28,14 @@ Item {
 
   function updateTime() {
     var d = new Date()
-    var formatted = Qt.formatDateTime(d, "h:mm AP")
-    var parts = formatted.split(" ")
-    currentTime = parts[0]
-    currentAmPm = parts.length > 1 ? parts[1] : ""
+    var hours = d.getHours()
+    var minutes = d.getMinutes()
+    var ampm = hours >= 12 ? "PM" : "AM"
+    hours = hours % 12
+    hours = hours ? hours : 12
+    var minutesStr = minutes < 10 ? ("0" + minutes) : minutes
+    currentTime = hours + ":" + minutesStr
+    currentAmPm = ampm
     currentDate = Qt.formatDateTime(d, "dddd, MMMM d, yyyy")
   }
 
