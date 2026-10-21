@@ -25,19 +25,48 @@ Item {
   property bool modMedia: true
   property bool modVisualizer: true
   property bool modSysinfo: true
+  property bool modShortcuts: true
+  property bool modQuote: false
   property bool modFooter: true
+  property bool modCustomizeButton: true
 
   property bool cfgFormat12h: true
   property bool cfgShowAmPm: true
+  property bool cfgShowSeconds: false
+  property int cfgClockSize: 76
+
+  property string cfgQuoteText: "The best way to predict the future is to invent it."
+  property string cfgQuoteAuthor: "Alan Kay"
+
   property int cfgVisHeight: 70
   property int cfgVisBars: 28
   property bool cfgIdleWave: true
 
   property color cfgAccent: "#e20074"
   property string cfgCardBg: "#0c0c12"
-  property real cfgCardOpacity: 0.90
+  property real cfgCardOpacity: 0.85
   property int cfgCardRadius: 20
+  property bool cfgBorderGlow: true
+  property real cfgBorderWidth: 1.5
   property string cfgUserName: "auto"
+
+  // Hardware Telemetry Configuration
+  property bool cfgHwCpuLoad: true
+  property bool cfgHwCpuTemp: true
+  property bool cfgHwFanSpeed: true
+  property bool cfgHwRam: true
+  property bool cfgHwGpuTemp: false
+  property string cfgHwTempUnit: "C"
+
+  // Dynamic Dock Application Shortcuts
+  property var cfgShortcuts: [
+    { icon: "󰈹", label: "Browser", cmd: "omarchy-cmd-default-browser || xdg-open https://google.com" },
+    { icon: "󰆍", label: "Terminal", cmd: "omarchy-default-terminal || foot" },
+    { icon: "󰉋", label: "Files", cmd: "thunar || omarchy-file-select" },
+    { icon: "󰨞", label: "Editor", cmd: "omarchy-default-editor || code || foot -e nvim" },
+    { icon: "󰎆", label: "Music", cmd: "playerctl play-pause 2>/dev/null || true" },
+    { icon: "", label: "Settings", cmd: Quickshell.env("HOME") + "/.local/bin/wallpaper-engine gui" }
+  ]
 
   readonly property color cardFillColor: Qt.rgba(
     cfgAccent.r * 0.05 + 0.05,
@@ -45,13 +74,22 @@ Item {
     cfgAccent.b * 0.05 + 0.07,
     cfgCardOpacity
   )
-  readonly property color cardBorderColor: Qt.rgba(cfgAccent.r, cfgAccent.g, cfgAccent.b, 0.40)
+  readonly property color cardBorderColor: Qt.rgba(cfgAccent.r, cfgAccent.g, cfgAccent.b, 0.45)
   readonly property color surfaceFillColor: Qt.rgba(cfgAccent.r * 0.08 + 0.08, cfgAccent.g * 0.08 + 0.08, cfgAccent.b * 0.08 + 0.12, 0.92)
 
   readonly property string resolvedUserName: {
     if (root.cfgUserName && root.cfgUserName !== "auto") return root.cfgUserName
     var envUser = Quickshell.env("USER") || "USER"
     return envUser.toUpperCase()
+  }
+
+  function displayTemp(tempC) {
+    if (!tempC || tempC <= 0) return "--°"
+    if (root.cfgHwTempUnit === "F") {
+      var f = Math.round(tempC * 9.0 / 5.0 + 32)
+      return f + "°F"
+    }
+    return tempC + "°C"
   }
 
   // Live FileView for Hot-Reloading configuration
@@ -80,11 +118,32 @@ Item {
         if (typeof d.modules.media === "boolean") root.modMedia = d.modules.media
         if (typeof d.modules.visualizer === "boolean") root.modVisualizer = d.modules.visualizer
         if (typeof d.modules.sysinfo === "boolean") root.modSysinfo = d.modules.sysinfo
+        if (typeof d.modules.shortcuts === "boolean") root.modShortcuts = d.modules.shortcuts
+        if (typeof d.modules.quote === "boolean") root.modQuote = d.modules.quote
         if (typeof d.modules.footer === "boolean") root.modFooter = d.modules.footer
+        if (typeof d.modules.customizeButton === "boolean") root.modCustomizeButton = d.modules.customizeButton
+        else if (typeof d.style === "object" && typeof d.style.showCustomizeButton === "boolean") root.modCustomizeButton = d.style.showCustomizeButton
       }
       if (d.clock) {
         if (typeof d.clock.format12h === "boolean") root.cfgFormat12h = d.clock.format12h
         if (typeof d.clock.showAmPm === "boolean") root.cfgShowAmPm = d.clock.showAmPm
+        if (typeof d.clock.showSeconds === "boolean") root.cfgShowSeconds = d.clock.showSeconds
+        if (typeof d.clock.fontSize === "number") root.cfgClockSize = d.clock.fontSize
+      }
+      if (d.hardware) {
+        if (typeof d.hardware.showCpuLoad === "boolean") root.cfgHwCpuLoad = d.hardware.showCpuLoad
+        if (typeof d.hardware.showCpuTemp === "boolean") root.cfgHwCpuTemp = d.hardware.showCpuTemp
+        if (typeof d.hardware.showFanSpeed === "boolean") root.cfgHwFanSpeed = d.hardware.showFanSpeed
+        if (typeof d.hardware.showRam === "boolean") root.cfgHwRam = d.hardware.showRam
+        if (typeof d.hardware.showGpuTemp === "boolean") root.cfgHwGpuTemp = d.hardware.showGpuTemp
+        if (typeof d.hardware.tempUnit === "string") root.cfgHwTempUnit = d.hardware.tempUnit.toUpperCase()
+      }
+      if (Array.isArray(d.shortcuts) && d.shortcuts.length > 0) {
+        root.cfgShortcuts = d.shortcuts
+      }
+      if (d.quote) {
+        if (typeof d.quote.text === "string") root.cfgQuoteText = d.quote.text
+        if (typeof d.quote.author === "string") root.cfgQuoteAuthor = d.quote.author
       }
       if (d.visualizer) {
         if (typeof d.visualizer.height === "number") root.cfgVisHeight = d.visualizer.height
@@ -96,6 +155,8 @@ Item {
         if (d.style.cardBackground) root.cfgCardBg = d.style.cardBackground
         if (typeof d.style.cardOpacity === "number") root.cfgCardOpacity = d.style.cardOpacity
         if (typeof d.style.cardRadius === "number") root.cfgCardRadius = d.style.cardRadius
+        if (typeof d.style.borderGlow === "boolean") root.cfgBorderGlow = d.style.borderGlow
+        if (typeof d.style.borderWidth === "number") root.cfgBorderWidth = d.style.borderWidth
         if (d.style.userName) root.cfgUserName = d.style.userName
       }
       root.updateTime()
@@ -106,6 +167,7 @@ Item {
 
   // Time & Date State
   property string currentTime: "12:00"
+  property string currentSeconds: ":00"
   property string currentAmPm: "PM"
   property string currentDate: ""
 
@@ -113,7 +175,9 @@ Item {
     var d = new Date()
     var hours = d.getHours()
     var minutes = d.getMinutes()
+    var seconds = d.getSeconds()
     var minutesStr = minutes < 10 ? ("0" + minutes) : minutes
+    var secondsStr = seconds < 10 ? ("0" + seconds) : seconds
 
     if (root.cfgFormat12h) {
       var ampm = hours >= 12 ? "PM" : "AM"
@@ -126,6 +190,7 @@ Item {
       currentTime = hoursStr + ":" + minutesStr
       currentAmPm = ""
     }
+    currentSeconds = ":" + secondsStr
     currentDate = Qt.formatDateTime(d, "dddd, MMMM d, yyyy")
   }
 
@@ -182,37 +247,42 @@ Item {
     }
   }
 
-  // System Stats (CPU & RAM) State
+  // System Hardware Stats (CPU load, CPU temp, Fan speed, RAM, GPU temp)
   property string sysCpuLoad: "0.0"
   property string sysRamUsed: "0G"
   property string sysRamTotal: "0G"
   property int sysRamPercent: 0
+  property int sysCpuTemp: 0
+  property int sysFanSpeed: 0
+  property int sysGpuTemp: 0
 
   Process {
     id: sysinfoProc
-    command: [
-      "sh", "-c",
-      "awk '{printf \"%.1f\", $1}' /proc/loadavg; echo; free -h | awk '/Mem:/ {print $3, $2}'; free -m | awk '/Mem:/ {printf \"%d\", int($3*100/$2)}'"
-    ]
+    command: [Quickshell.env("HOME") + "/.local/bin/wallpaper-engine", "hwinfo"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var lines = String(text || "").trim().split("\n")
-        if (lines.length >= 3) {
-          root.sysCpuLoad = lines[0].trim()
-          var memParts = lines[1].trim().split(/\s+/)
-          if (memParts.length >= 2) {
-            root.sysRamUsed = memParts[0]
-            root.sysRamTotal = memParts[1]
+        try {
+          var str = String(text || "").trim()
+          if (str.length > 0) {
+            var data = JSON.parse(str)
+            if (data.cpuLoad !== undefined) root.sysCpuLoad = String(data.cpuLoad)
+            if (data.ramUsed !== undefined) root.sysRamUsed = String(data.ramUsed)
+            if (data.ramTotal !== undefined) root.sysRamTotal = String(data.ramTotal)
+            if (data.ramPercent !== undefined) root.sysRamPercent = data.ramPercent
+            if (data.cpuTemp !== undefined) root.sysCpuTemp = data.cpuTemp
+            if (data.fanSpeed !== undefined) root.sysFanSpeed = data.fanSpeed
+            if (data.gpuTemp !== undefined) root.sysGpuTemp = data.gpuTemp
           }
-          root.sysRamPercent = Math.min(100, Math.max(0, parseInt(lines[2]) || 0))
+        } catch (e) {
+          console.warn("WallpaperEngine: Error parsing hwinfo:", e)
         }
       }
     }
   }
 
   Timer {
-    interval: 3000
+    interval: 2500
     running: root.modSysinfo
     repeat: true
     triggeredOnStart: true
@@ -326,6 +396,16 @@ Item {
     onTriggered: cavaProc.running = root.modVisualizer
   }
 
+  // High-reliability detached execution helpers
+  function runCmd(cmd) {
+    if (!cmd || cmd.trim() === "") return
+    Quickshell.execDetached(["bash", "-lc", cmd])
+  }
+
+  function openGui() {
+    Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/wallpaper-engine", "gui"])
+  }
+
   // Multi-Screen LayerShell Windows
   Variants {
     model: Quickshell.screens
@@ -341,7 +421,12 @@ Item {
       WlrLayershell.layer: WlrLayer.Bottom
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       exclusionMode: ExclusionMode.Ignore
-      mask: Region {}
+
+      // The mask bounds exactly to widgetHub so all buttons and interactive controls
+      // are completely clickable, while leaving all empty desktop areas 100% click-through.
+      mask: Region {
+        item: widgetHub
+      }
 
       Item {
         anchors.fill: parent
@@ -389,9 +474,19 @@ Item {
               radius: root.cfgCardRadius
               color: root.cardFillColor
               border.color: root.cardBorderColor
-              border.width: 1.5
+              border.width: root.cfgBorderWidth
 
+              // Right-click shortcut to open customizer GUI
+              MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.RightButton
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.openGui()
+              }
+
+              // Glow Pill
               Rectangle {
+                visible: root.cfgBorderGlow
                 anchors.centerIn: parent
                 width: 380
                 height: 100
@@ -410,25 +505,36 @@ Item {
                 Row {
                   visible: root.modClock
                   anchors.horizontalCenter: parent.horizontalCenter
-                  spacing: 12
+                  spacing: 8
 
                   Text {
                     text: root.currentTime
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 76
+                    font.pixelSize: root.cfgClockSize
                     font.weight: Font.Bold
                     color: "#ffffff"
+                  }
+
+                  Text {
+                    visible: root.cfgShowSeconds
+                    text: root.currentSeconds
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Math.round(root.cfgClockSize * 0.42)
+                    font.weight: Font.Bold
+                    color: Qt.rgba(root.cfgAccent.r, root.cfgAccent.g, root.cfgAccent.b, 0.85)
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: Math.round(root.cfgClockSize * 0.12)
                   }
 
                   Text {
                     visible: root.cfgShowAmPm && root.currentAmPm !== ""
                     text: root.currentAmPm
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 26
+                    font.pixelSize: Math.round(root.cfgClockSize * 0.34)
                     font.weight: Font.ExtraBold
                     color: root.cfgAccent
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 14
+                    anchors.bottomMargin: Math.round(root.cfgClockSize * 0.14)
                   }
                 }
 
@@ -448,9 +554,9 @@ Item {
                 Rectangle {
                   visible: root.modWeather
                   anchors.horizontalCenter: parent.horizontalCenter
-                  height: 34
-                  width: weatherRow.implicitWidth + 32
-                  radius: 17
+                  width: weatherRow.implicitWidth + 24
+                  height: 32
+                  radius: 16
                   color: root.surfaceFillColor
                   border.color: root.cardBorderColor
                   border.width: 1
@@ -458,35 +564,21 @@ Item {
                   Row {
                     id: weatherRow
                     anchors.centerIn: parent
-                    spacing: 10
+                    spacing: 8
 
                     Text {
                       text: root.weatherIcon
                       font.family: "JetBrainsMono Nerd Font"
-                      font.pixelSize: 18
+                      font.pixelSize: 15
                       color: root.cfgAccent
                     }
 
                     Text {
-                      text: root.weatherTemp
-                      font.family: "JetBrainsMono Nerd Font"
-                      font.pixelSize: 14
-                      font.weight: Font.Bold
-                      color: "#ffffff"
-                    }
-
-                    Text {
-                      text: "•"
-                      font.pixelSize: 12
-                      color: root.cfgAccent
-                    }
-
-                    Text {
-                      text: root.weatherCity
+                      text: root.weatherCity + "  " + root.weatherTemp
                       font.family: "JetBrainsMono Nerd Font"
                       font.pixelSize: 13
-                      font.weight: Font.Medium
-                      color: "#b0b0cb"
+                      font.weight: Font.Bold
+                      color: "#ffffff"
                     }
                   }
                 }
@@ -494,7 +586,144 @@ Item {
             }
 
             // ==========================================
-            // MODULE 2: Now Playing & Audio Visualizer
+            // MODULE: Quick-Launch Shortcuts Dock (Fully Customizable)
+            // ==========================================
+            Rectangle {
+              id: shortcutsDock
+              visible: root.modShortcuts && root.cfgShortcuts.length > 0
+              width: parent.width
+              height: 56
+              radius: root.cfgCardRadius
+              color: root.cardFillColor
+              border.color: root.cardBorderColor
+              border.width: root.cfgBorderWidth
+
+              RowLayout {
+                anchors.centerIn: parent
+                spacing: 20
+
+                Repeater {
+                  model: root.cfgShortcuts
+
+                  Item {
+                    id: dockItem
+                    required property var modelData
+                    width: 42
+                    height: 42
+
+                    Rectangle {
+                      id: dockBtn
+                      anchors.fill: parent
+                      radius: 21
+                      color: dockMouse.containsMouse ? Qt.rgba(root.cfgAccent.r, root.cfgAccent.g, root.cfgAccent.b, 0.40) : root.surfaceFillColor
+                      border.color: dockMouse.containsMouse ? root.cfgAccent : root.cardBorderColor
+                      border.width: dockMouse.containsMouse ? 1.5 : 1
+
+                      Behavior on color { ColorAnimation { duration: 120 } }
+                      scale: dockMouse.pressed ? 0.90 : (dockMouse.containsMouse ? 1.14 : 1.0)
+                      Behavior on scale { NumberAnimation { duration: 120 } }
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: dockItem.modelData.icon || "󰈹"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 20
+                        color: dockMouse.containsMouse ? "#ffffff" : root.cfgAccent
+                      }
+
+                      MouseArea {
+                        id: dockMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.runCmd(dockItem.modelData.cmd)
+                      }
+                    }
+
+                    // Hover Label Tooltip Pill
+                    Rectangle {
+                      visible: dockMouse.containsMouse && dockItem.modelData.label !== undefined && dockItem.modelData.label.length > 0
+                      anchors.bottom: dockBtn.top
+                      anchors.bottomMargin: 8
+                      anchors.horizontalCenter: dockBtn.horizontalCenter
+                      width: ttText.implicitWidth + 14
+                      height: 22
+                      radius: 11
+                      color: "#181824"
+                      border.color: root.cfgAccent
+                      border.width: 1
+                      z: 100
+
+                      Text {
+                        id: ttText
+                        anchors.centerIn: parent
+                        text: dockItem.modelData.label || ""
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 10
+                        font.weight: Font.Bold
+                        color: "#ffffff"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // ==========================================
+            // MODULE: Daily Quote / Inspiration Card
+            // ==========================================
+            Rectangle {
+              id: quoteCard
+              visible: root.modQuote && root.cfgQuoteText.length > 0
+              width: parent.width
+              height: quoteCol.implicitHeight + 28
+              radius: root.cfgCardRadius
+              color: root.cardFillColor
+              border.color: root.cardBorderColor
+              border.width: root.cfgBorderWidth
+
+              ColumnLayout {
+                id: quoteCol
+                anchors.centerIn: parent
+                width: parent.width - 48
+                spacing: 6
+
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 12
+
+                  Text {
+                    text: "󰝗"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 20
+                    color: root.cfgAccent
+                  }
+
+                  Text {
+                    Layout.fillWidth: true
+                    text: root.cfgQuoteText
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    font.italic: true
+                    color: "#f0f0ff"
+                    wrapMode: Text.WordWrap
+                  }
+                }
+
+                Text {
+                  visible: root.cfgQuoteAuthor.length > 0
+                  Layout.alignment: Qt.AlignRight
+                  text: "— " + root.cfgQuoteAuthor
+                  font.family: "JetBrainsMono Nerd Font"
+                  font.pixelSize: 11
+                  font.weight: Font.Bold
+                  color: root.cfgAccent
+                }
+              }
+            }
+
+            // ==========================================
+            // MODULE 2: Media Player & Audio Visualizer
             // ==========================================
             Rectangle {
               id: mediaCard
@@ -504,51 +733,50 @@ Item {
               radius: root.cfgCardRadius
               color: root.cardFillColor
               border.color: root.cardBorderColor
-              border.width: 1.5
+              border.width: root.cfgBorderWidth
 
               Column {
                 id: mediaCol
                 anchors.centerIn: parent
-                spacing: 16
                 width: parent.width - 48
+                spacing: 18
 
-                // Track Info Row
-                Row {
+                // Track Info Header & Interactive Playback Controls
+                RowLayout {
                   visible: root.modMedia
                   width: parent.width
                   spacing: 16
 
-                  // Album Art / Music Glyph
+                  // Track Art / Icon
                   Rectangle {
                     width: 54
                     height: 54
                     radius: 12
                     color: root.surfaceFillColor
-                    border.color: root.isPlaying ? root.cfgAccent : "#303042"
-                    border.width: 1.5
-                    clip: true
+                    border.color: root.cardBorderColor
+                    border.width: 1
 
                     Image {
                       anchors.fill: parent
+                      anchors.margins: 2
                       source: root.trackArt
                       fillMode: Image.PreserveAspectCrop
                       visible: root.trackArt !== ""
+                      layer.enabled: true
                     }
 
                     Text {
-                      anchors.centerIn: parent
                       visible: root.trackArt === ""
-                      text: root.isPlaying ? "󰎆" : ""
+                      anchors.centerIn: parent
+                      text: root.isPlaying ? "󰎈" : "󰎊"
                       font.family: "JetBrainsMono Nerd Font"
-                      font.pixelSize: 26
-                      color: root.isPlaying ? root.cfgAccent : "#707088"
+                      font.pixelSize: 24
+                      color: root.cfgAccent
                     }
                   }
 
-                  // Track Text Column
-                  Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 70
+                  ColumnLayout {
+                    Layout.fillWidth: true
                     spacing: 4
 
                     Row {
@@ -556,75 +784,169 @@ Item {
                       Text {
                         text: root.isPlaying ? "󰐊 PLAYING" : "󰏤 IDLE"
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 11
-                        font.weight: Font.Bold
-                        color: root.isPlaying ? "#00e676" : "#ffb347"
+                        font.pixelSize: 10
+                        font.weight: Font.ExtraBold
+                        color: root.cfgAccent
+                        font.letterSpacing: 2
                       }
                     }
 
                     Text {
                       text: root.trackTitle
                       font.family: "JetBrainsMono Nerd Font"
-                      font.pixelSize: 16
+                      font.pixelSize: 17
                       font.weight: Font.Bold
                       color: "#ffffff"
                       elide: Text.ElideRight
-                      width: parent.width
+                      Layout.fillWidth: true
                     }
 
                     Text {
                       text: root.trackArtist + (root.trackAlbum ? (" · " + root.trackAlbum) : "")
                       font.family: "JetBrainsMono Nerd Font"
                       font.pixelSize: 12
-                      color: "#b0b0cb"
+                      color: "#9e9eb8"
                       elide: Text.ElideRight
-                      width: parent.width
+                      Layout.fillWidth: true
+                    }
+                  }
+
+                  // Interactive Playback Controls Pill
+                  Row {
+                    spacing: 8
+                    Layout.alignment: Qt.AlignVCenter
+
+                    // Previous Track Button
+                    Rectangle {
+                      width: 32
+                      height: 32
+                      radius: 16
+                      color: prevMouse.containsMouse ? Qt.rgba(root.cfgAccent.r, root.cfgAccent.g, root.cfgAccent.b, 0.35) : root.surfaceFillColor
+                      border.color: prevMouse.containsMouse ? root.cfgAccent : root.cardBorderColor
+                      border.width: 1
+                      scale: prevMouse.pressed ? 0.92 : 1.0
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: "󰒮"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: prevMouse.containsMouse ? "#ffffff" : root.cfgAccent
+                      }
+
+                      MouseArea {
+                        id: prevMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.runCmd("playerctl previous")
+                      }
+                    }
+
+                    // Play / Pause Toggle Button
+                    Rectangle {
+                      width: 36
+                      height: 36
+                      radius: 18
+                      color: root.cfgAccent
+                      scale: ppMouse.pressed ? 0.92 : 1.0
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: root.isPlaying ? "󰏤" : "󰐊"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 15
+                        color: "#ffffff"
+                      }
+
+                      MouseArea {
+                        id: ppMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.runCmd("playerctl play-pause")
+                      }
+                    }
+
+                    // Next Track Button
+                    Rectangle {
+                      width: 32
+                      height: 32
+                      radius: 16
+                      color: nextMouse.containsMouse ? Qt.rgba(root.cfgAccent.r, root.cfgAccent.g, root.cfgAccent.b, 0.35) : root.surfaceFillColor
+                      border.color: nextMouse.containsMouse ? root.cfgAccent : root.cardBorderColor
+                      border.width: 1
+                      scale: nextMouse.pressed ? 0.92 : 1.0
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: "󰒭"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: nextMouse.containsMouse ? "#ffffff" : root.cfgAccent
+                      }
+
+                      MouseArea {
+                        id: nextMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.runCmd("playerctl next")
+                      }
                     }
                   }
                 }
 
-                // Audio Spectrum Visualizer
-                Row {
+                // CAVA Animated Audio Visualizer Spectrum
+                Rectangle {
+                  id: visContainer
                   visible: root.modVisualizer
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  spacing: 6
+                  width: parent.width
                   height: root.cfgVisHeight
+                  color: "transparent"
 
-                  Repeater {
-                    model: root.cfgVisBars
+                  Row {
+                    anchors.fill: parent
+                    spacing: Math.max(2, (parent.width - (root.cfgVisBars * 14)) / root.cfgVisBars)
 
-                    Item {
-                      required property int index
-                      width: 8
-                      height: root.cfgVisHeight
-                      anchors.bottom: parent.bottom
+                    Repeater {
+                      model: root.cfgVisBars
 
-                      readonly property real val: (root.displayBars && root.displayBars[index]) ? root.displayBars[index] : 0
-                      readonly property real peak: (root.peakBars && root.peakBars[index]) ? root.peakBars[index] : 0
-                      readonly property real barHeight: Math.max(5, (val / 100.0) * (root.cfgVisHeight - 8))
-                      readonly property real peakY: root.cfgVisHeight - Math.max(6, (peak / 100.0) * (root.cfgVisHeight - 4))
+                      Item {
+                        required property int index
+                        width: 14
+                        height: parent.height
 
-                      Rectangle {
-                        anchors.bottom: parent.bottom
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: 8
-                        height: parent.barHeight
-                        radius: 4
-                        gradient: Gradient {
-                          GradientStop { position: 0.0; color: "#ff4d94" }
-                          GradientStop { position: 0.5; color: root.cfgAccent }
-                          GradientStop { position: 1.0; color: "#550026" }
+                        readonly property real barVal: (root.displayBars && root.displayBars[index]) ? root.displayBars[index] : 0
+                        readonly property real peakVal: (root.peakBars && root.peakBars[index]) ? root.peakBars[index] : 0
+
+                        // Spectrum Bar Column
+                        Rectangle {
+                          anchors.bottom: parent.bottom
+                          width: parent.width
+                          height: Math.max(3, (barVal / 100.0) * parent.height)
+                          radius: 4
+                          color: {
+                            var ratio = index / Math.max(1, root.cfgVisBars - 1)
+                            return Qt.rgba(
+                              root.cfgAccent.r * (1 - ratio * 0.2),
+                              root.cfgAccent.g * (1 + ratio * 0.3),
+                              root.cfgAccent.b * (1 + ratio * 0.5),
+                              0.88
+                            )
+                          }
                         }
-                      }
 
-                      Rectangle {
-                        y: parent.peakY
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: 8
-                        height: 3
-                        radius: 1.5
-                        color: "#ffffff"
-                        opacity: parent.val > 5 ? 1.0 : 0.4
+                        // Floating Peak Indicator
+                        Rectangle {
+                          anchors.bottom: parent.bottom
+                          anchors.bottomMargin: Math.max(4, (peakVal / 100.0) * parent.height)
+                          width: parent.width
+                          height: 2
+                          radius: 1
+                          color: "#ffffff"
+                          opacity: 0.85
+                        }
                       }
                     }
                   }
@@ -633,31 +955,32 @@ Item {
             }
 
             // ==========================================
-            // MODULE 3: System Stats (CPU & RAM)
+            // MODULE 3: Hardware Monitor (CPU Temps, Fan Speeds, RAM, GPU)
             // ==========================================
             Rectangle {
               id: sysinfoCard
               visible: root.modSysinfo
               width: parent.width
-              height: 52
+              height: 48
               radius: root.cfgCardRadius
               color: root.cardFillColor
               border.color: root.cardBorderColor
-              border.width: 1.5
+              border.width: root.cfgBorderWidth
 
               Row {
                 anchors.centerIn: parent
-                spacing: 36
+                spacing: 20
 
                 // CPU Load Meter
                 Row {
-                  spacing: 12
+                  visible: root.cfgHwCpuLoad
+                  spacing: 8
                   anchors.verticalCenter: parent.verticalCenter
 
                   Text {
                     text: "󰍛 CPU"
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     font.weight: Font.Bold
                     color: root.cfgAccent
                   }
@@ -665,35 +988,94 @@ Item {
                   Text {
                     text: root.sysCpuLoad + " load"
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     color: "#ffffff"
                   }
                 }
 
-                // Vertical Divider
-                Rectangle {
-                  width: 1
-                  height: 22
-                  color: root.cardBorderColor
+                // CPU Temperature Meter
+                Row {
+                  visible: root.cfgHwCpuTemp && root.sysCpuTemp > 0
+                  spacing: 8
                   anchors.verticalCenter: parent.verticalCenter
+
+                  Rectangle {
+                    width: 1
+                    height: 18
+                    color: root.cardBorderColor
+                    visible: root.cfgHwCpuLoad
+                  }
+
+                  Text {
+                    text: "󰈸 TEMP"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    color: root.cfgAccent
+                  }
+
+                  Text {
+                    text: root.displayTemp(root.sysCpuTemp)
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    color: root.sysCpuTemp >= 80 ? "#ff5555" : (root.sysCpuTemp >= 65 ? "#ffb86c" : "#50fa7b")
+                  }
+                }
+
+                // Fan Speed Meter
+                Row {
+                  visible: root.cfgHwFanSpeed && root.sysFanSpeed > 0
+                  spacing: 8
+                  anchors.verticalCenter: parent.verticalCenter
+
+                  Rectangle {
+                    width: 1
+                    height: 18
+                    color: root.cardBorderColor
+                    visible: root.cfgHwCpuLoad || (root.cfgHwCpuTemp && root.sysCpuTemp > 0)
+                  }
+
+                  Text {
+                    text: "󰠝 FAN"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    color: root.cfgAccent
+                  }
+
+                  Text {
+                    text: root.sysFanSpeed + " RPM"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    color: "#ffffff"
+                  }
                 }
 
                 // RAM Memory Meter
                 Row {
-                  spacing: 12
+                  visible: root.cfgHwRam
+                  spacing: 8
                   anchors.verticalCenter: parent.verticalCenter
+
+                  Rectangle {
+                    width: 1
+                    height: 18
+                    color: root.cardBorderColor
+                    visible: root.cfgHwCpuLoad || (root.cfgHwCpuTemp && root.sysCpuTemp > 0) || (root.cfgHwFanSpeed && root.sysFanSpeed > 0)
+                  }
 
                   Text {
                     text: "󰘚 RAM"
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     font.weight: Font.Bold
                     color: root.cfgAccent
                   }
 
                   // Progress Bar for RAM
                   Rectangle {
-                    width: 100
+                    width: 70
                     height: 8
                     radius: 4
                     color: root.surfaceFillColor
@@ -710,7 +1092,35 @@ Item {
                   Text {
                     text: root.sysRamUsed + " (" + root.sysRamPercent + "%)"
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
+                    font.pixelSize: 12
+                    color: "#ffffff"
+                  }
+                }
+
+                // GPU Temp Meter (optional)
+                Row {
+                  visible: root.cfgHwGpuTemp && root.sysGpuTemp > 0
+                  spacing: 8
+                  anchors.verticalCenter: parent.verticalCenter
+
+                  Rectangle {
+                    width: 1
+                    height: 18
+                    color: root.cardBorderColor
+                  }
+
+                  Text {
+                    text: "󰢮 GPU"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                    color: root.cfgAccent
+                  }
+
+                  Text {
+                    text: root.displayTemp(root.sysGpuTemp)
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
                     color: "#ffffff"
                   }
                 }
@@ -718,18 +1128,74 @@ Item {
             }
 
             // ==========================================
-            // MODULE 4: Dynamic Personal Branding Footer
+            // MODULE 4: Dynamic Personal Branding & Customizer
             // ==========================================
-            Text {
-              visible: root.modFooter
+            Column {
               anchors.horizontalCenter: parent.horizontalCenter
-              text: root.resolvedUserName + " // WALLPAPER ENGINE"
-              font.family: "JetBrainsMono Nerd Font"
-              font.pixelSize: 11
-              font.weight: Font.Bold
-              font.letterSpacing: 6
-              color: root.cfgAccent
-              opacity: 0.7
+              spacing: 8
+
+              Text {
+                visible: root.modFooter
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.resolvedUserName + " // WALLPAPER ENGINE"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 11
+                font.weight: Font.Bold
+                font.letterSpacing: 6
+                color: root.cfgAccent
+                opacity: 0.7
+
+                MouseArea {
+                  anchors.fill: parent
+                  acceptedButtons: Qt.RightButton | Qt.LeftButton
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.openGui()
+                }
+              }
+
+              // Interactive Quick-Customize Button (Can be toggled off)
+              Rectangle {
+                id: customizeBtn
+                visible: root.modCustomizeButton
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: custRow.implicitWidth + 20
+                height: 26
+                radius: 13
+                color: custMouse.containsMouse ? Qt.rgba(root.cfgAccent.r, root.cfgAccent.g, root.cfgAccent.b, 0.35) : Qt.rgba(root.cfgAccent.r * 0.05 + 0.05, root.cfgAccent.g * 0.05 + 0.05, root.cfgAccent.b * 0.05 + 0.07, 0.70)
+                border.color: custMouse.containsMouse ? root.cfgAccent : root.cardBorderColor
+                border.width: 1
+
+                Behavior on color { ColorAnimation { duration: 150 } }
+
+                Row {
+                  id: custRow
+                  anchors.centerIn: parent
+                  spacing: 6
+
+                  Text {
+                    text: ""
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    color: root.cfgAccent
+                  }
+
+                  Text {
+                    text: "Customize Widget"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                    color: custMouse.containsMouse ? "#ffffff" : "#c0c0d8"
+                  }
+                }
+
+                MouseArea {
+                  id: custMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.openGui()
+                }
+              }
             }
           }
         }
