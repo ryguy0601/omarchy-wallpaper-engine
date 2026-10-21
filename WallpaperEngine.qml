@@ -12,8 +12,8 @@ Item {
   property var shell: null
   property var manifest: null
 
-  property string currentTime: ""
-  property string currentAmPm: ""
+  property string currentTime: "12:00"
+  property string currentAmPm: "PM"
   property string currentDate: ""
   property string weatherText: "Loading weather..."
   property string weatherTemp: "--°"
@@ -28,8 +28,10 @@ Item {
 
   function updateTime() {
     var d = new Date()
-    currentTime = Qt.formatDateTime(d, "h:mm")
-    currentAmPm = Qt.formatDateTime(d, "AP")
+    var formatted = Qt.formatDateTime(d, "h:mm AP")
+    var parts = formatted.split(" ")
+    currentTime = parts[0]
+    currentAmPm = parts.length > 1 ? parts[1] : ""
     currentDate = Qt.formatDateTime(d, "dddd, MMMM d, yyyy")
   }
 
@@ -211,17 +213,27 @@ Item {
         // Main Centered Wallpaper Engine Hub
         Column {
           anchors.centerIn: parent
-          spacing: 24
+          spacing: 22
           width: 720
 
           // Top Card: Clock, Date, Weather
           Rectangle {
             width: parent.width
-            height: 190
+            height: 195
             radius: 20
-            color: "#0c0c10cc"
-            border.color: "#e200744d"
-            border.width: 1
+            color: "#0c0c12e0"
+            border.color: "#e2007466"
+            border.width: 1.5
+
+            // Ambient Magenta Glow behind clock
+            Rectangle {
+              anchors.centerIn: parent
+              width: 360
+              height: 100
+              radius: 50
+              color: "#e20074"
+              opacity: 0.08
+            }
 
             Column {
               anchors.centerIn: parent
@@ -259,7 +271,7 @@ Item {
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 17
                 font.weight: Font.Medium
-                color: "#c8c8d8"
+                color: "#dcdcfa"
                 font.letterSpacing: 2
               }
 
@@ -267,10 +279,10 @@ Item {
               Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 height: 34
-                width: weatherRow.implicitWidth + 30
+                width: weatherRow.implicitWidth + 32
                 radius: 17
-                color: "#161622aa"
-                border.color: "#e2007433"
+                color: "#181826ee"
+                border.color: "#e200744d"
                 border.width: 1
 
                 Row {
@@ -304,7 +316,7 @@ Item {
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
                     font.weight: Font.Medium
-                    color: "#a0a0b5"
+                    color: "#b0b0cb"
                   }
                 }
               }
@@ -314,11 +326,11 @@ Item {
           // Bottom Card: Now Playing & Audio Visualizer
           Rectangle {
             width: parent.width
-            height: 180
+            height: 195
             radius: 20
-            color: "#0c0c10cc"
-            border.color: "#e200744d"
-            border.width: 1
+            color: "#0c0c12e0"
+            border.color: "#e2007466"
+            border.width: 1.5
 
             Column {
               anchors.centerIn: parent
@@ -335,8 +347,8 @@ Item {
                   width: 54
                   height: 54
                   radius: 12
-                  color: "#161622"
-                  border.color: root.isPlaying ? "#e20074" : "#2a2a3a"
+                  color: "#181826"
+                  border.color: root.isPlaying ? "#e20074" : "#303042"
                   border.width: 1.5
                   clip: true
 
@@ -353,7 +365,7 @@ Item {
                     text: root.isPlaying ? "󰎆" : ""
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 26
-                    color: root.isPlaying ? "#e20074" : "#606075"
+                    color: root.isPlaying ? "#e20074" : "#707088"
                   }
                 }
 
@@ -388,7 +400,7 @@ Item {
                     text: root.trackArtist + (root.trackAlbum ? (" · " + root.trackAlbum) : "")
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
-                    color: "#a0a0b5"
+                    color: "#b0b0cb"
                     elide: Text.ElideRight
                     width: parent.width
                   }
@@ -399,7 +411,7 @@ Item {
               Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 6
-                height: 60
+                height: 70
 
                 Repeater {
                   model: root.barCount
@@ -407,15 +419,15 @@ Item {
                   Item {
                     required property int index
                     width: 8
-                    height: 60
+                    height: 70
                     anchors.bottom: parent.bottom
 
                     readonly property real val: (root.displayBars && root.displayBars[index]) ? root.displayBars[index] : 0
                     readonly property real peak: (root.peakBars && root.peakBars[index]) ? root.peakBars[index] : 0
-                    readonly property real barHeight: Math.max(4, (val / 100.0) * 52)
-                    readonly property real peakY: 60 - Math.max(6, (peak / 100.0) * 56)
+                    readonly property real barHeight: Math.max(5, (val / 100.0) * 62)
+                    readonly property real peakY: 70 - Math.max(6, (peak / 100.0) * 66)
 
-                    // Main Bar
+                    // Main Bar with Vibrant Magenta Gradient
                     Rectangle {
                       anchors.bottom: parent.bottom
                       anchors.horizontalCenter: parent.horizontalCenter
@@ -425,7 +437,7 @@ Item {
                       gradient: Gradient {
                         GradientStop { position: 0.0; color: "#ff4d94" }
                         GradientStop { position: 0.5; color: "#e20074" }
-                        GradientStop { position: 1.0; color: "#7a003f" }
+                        GradientStop { position: 1.0; color: "#6e0037" }
                       }
                     }
 
@@ -437,7 +449,7 @@ Item {
                       height: 3
                       radius: 1.5
                       color: "#ffffff"
-                      opacity: parent.val > 5 ? 0.9 : 0.3
+                      opacity: parent.val > 5 ? 1.0 : 0.4
                     }
                   }
                 }
@@ -454,7 +466,7 @@ Item {
             font.weight: Font.Bold
             font.letterSpacing: 6
             color: "#e20074"
-            opacity: 0.6
+            opacity: 0.7
           }
         }
       }
