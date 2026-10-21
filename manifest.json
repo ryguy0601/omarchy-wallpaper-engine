@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "ryguy.wallpaper-engine",
+  "name": "Wallpaper Engine Widget",
+  "version": "1.0.0",
+  "author": "ryguy",
+  "description": "Live Wallpaper Engine desktop widget with 12h clock, date, weather, now-playing media, and animated audio spectrum visualizer.",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "WallpaperEngine.qml"
+  }
+}
