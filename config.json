@@ -1,34 +1,28 @@
 {
-  "layout": {
-    "position": "center",
-    "customX": 100,
-    "customY": 100,
-    "width": 720,
-    "spacing": 22
-  },
-  "modules": {
+  "weatherEffect": "auto",
+  "billboards": {
     "clock": true,
-    "date": true,
-    "weather": true,
+    "cpu": true,
+    "ram": true,
+    "gpu": true,
     "media": true,
-    "visualizer": true,
-    "sysinfo": true,
-    "footer": true
+    "nameClock": "LIVE BROADCAST // ONE TIMES SQUARE NYC",
+    "nameCpu": "CPU CORE",
+    "nameRam": "Memory",
+    "nameGpu": "GPU & FANS",
+    "nameMedia": "BROADWAY JUMBOTRON"
   },
   "clock": {
     "format12h": true,
-    "showAmPm": true
-  },
-  "visualizer": {
-    "height": 70,
-    "bars": 28,
-    "idleWave": true
+    "showAmPm": true,
+    "showSeconds": false,
+    "fontSize": 76
   },
   "style": {
     "accentColor": "#e20074",
     "cardBackground": "#0c0c12",
-    "cardOpacity": 0.90,
+    "cardOpacity": 0.85,
     "cardRadius": 20,
-    "userName": "auto"
+    "borderWidth": 1.5
   }
 }
