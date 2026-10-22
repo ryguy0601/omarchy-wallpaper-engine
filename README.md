@@ -6,6 +6,14 @@ Featuring an authentic Times Square street canyon with 5 flagship skyscrapers mo
 
 ![Wallpaper Engine Preview](preview.png)
 
+<p align="center">
+  <img src="assets/weather-demo.gif" alt="Dynamic Weather Simulation" width="48%" />
+  <img src="assets/audio-demo.gif" alt="Audio Reactive Visualizer & Skyline" width="48%" />
+</p>
+<p align="center">
+  <em>Live Dynamic Weather (Thunderstorm Lightning / Rain) & Audio-Reactive Skyline & Visualizer</em>
+</p>
+
 ---
 
 ## 🚀 Quick Install
